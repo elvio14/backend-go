@@ -2,9 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,10 @@ type Product struct {
 	Category    string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+type ProductDelete struct {
+	ProductID string
 }
 
 func initializeProductsTable() error {
@@ -44,7 +49,7 @@ func initializeProductsTable() error {
 }
 
 // PRODUCTS
-func addProduct(c *gin.Context) {
+func addProducts(c *gin.Context) {
 	var count int
 
 	if result, err := getCount("products"); err != nil {
@@ -53,28 +58,31 @@ func addProduct(c *gin.Context) {
 		count = result
 	}
 
-	// Generate Product ID
-	productID := fmt.Sprintf("%04d", count+1)
-
-	var product Product
-	if err := c.ShouldBindBodyWithJSON(&product); err != nil {
+	var products []Product
+	if err := c.ShouldBindBodyWithJSON(&products); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error_2": err.Error()})
 		return
 	}
-
-	product.ProductID = productID
 
 	SQL := `
 		INSERT INTO products (product_id, image, name, description, category, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?);
 	`
-	_, err := db.Exec(SQL, productID, product.Image, product.Name, product.Description, product.Category, time.Now(), time.Now())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_3": err.Error()})
-		return
+	var productsString string
+	countAdd := 1
+	for _, product := range products {
+		productID := fmt.Sprintf("%04d", count+countAdd)
+		countAdd++
+		product.ProductID = productID
+		_, err := db.Exec(SQL, product.ProductID, product.Image, product.Name, product.Description, product.Category, time.Now(), time.Now())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error_3": err.Error()})
+			return
+		}
+		productsString = productsString + product.Name + ","
 	}
 
-	message := fmt.Sprintf(`product added: %s`, product.Name)
+	message := fmt.Sprintf(`product added: %s`, productsString)
 
 	c.JSON(http.StatusOK, gin.H{"message": message})
 }
@@ -149,18 +157,31 @@ func editProduct(c *gin.Context) {
 }
 
 func editProductString(c *gin.Context, ID string, column string) {
-	body, err_0 := c.GetRawData()
+	//Body: "new-value" : value
+	body, err_0 := io.ReadAll(c.Request.Body)
 	if err_0 != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_1": "Could not read request body."})
+		c.JSON(http.StatusBadRequest, gin.H{"error_0": "Could not read request body."})
 		return
 	}
-	bodyString := string(body)
+
+	var data map[string]interface{}
+
+	if err := json.Unmarshal(body, &data); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	value, ok := data["new-value"].(string)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "reading value"})
+		return
+	}
 
 	SQL := fmt.Sprintf(`UPDATE products SET (%s, updated_at) = (?, ?) WHERE id = ?;`, column)
 
-	_, err_1 := db.Exec(SQL, bodyString, time.Now(), ID)
-	if err_1 != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_2": err_1.Error()})
+	_, err_2 := db.Exec(SQL, value, time.Now(), ID)
+	if err_2 != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error_2": err_2.Error()})
 		return
 	}
 
@@ -171,21 +192,29 @@ func editProductString(c *gin.Context, ID string, column string) {
 }
 
 func editPriceInt(c *gin.Context, ID string, column string) {
-	body, err_0 := c.GetRawData()
+	//Body: "new-value" : value
+	body, err_0 := io.ReadAll(c.Request.Body)
 	if err_0 != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error_0": "Could not read request body."})
+		return
 	}
-	bodyString := string(body)
 
-	bodyInt, err_1 := strconv.ParseInt(bodyString, 10, 64)
-	if err_1 != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_1": "failed to convert to number"})
+	var data map[string]interface{}
+
+	if err := json.Unmarshal(body, &data); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	value, ok := data["new-value"].(int)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "reading value"})
 		return
 	}
 
 	SQL := fmt.Sprintf(`UPDATE products SET (%s, updated_at) = (?, ?) WHERE id = ?;`, column)
 
-	_, err_2 := db.Exec(SQL, bodyInt, time.Now(), ID)
+	_, err_2 := db.Exec(SQL, value, time.Now(), ID)
 	if err_2 != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error_2": err_2.Error()})
 		return
@@ -194,6 +223,19 @@ func editPriceInt(c *gin.Context, ID string, column string) {
 	message := fmt.Sprintf(`edited product %s's %s`, ID, column)
 
 	c.JSON(http.StatusOK, gin.H{"message": message})
+}
+
+func deleteProduct(c *gin.Context) {
+	productID := c.Param("id")
+	SQL := `DELETE FROM products WHERE product_id = ?`
+
+	_, err := db.Exec(SQL, productID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, "product deleted: "+productID)
 }
 
 func bindProducts(rows *sql.Rows) ([]Product, error) {

@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"log"
@@ -85,8 +86,9 @@ func main() {
 	})
 
 	r.POST("/products", func(c *gin.Context) {
+		//takes an array or products in body JSON
 		if isAdmin := validateAdmin(c); isAdmin {
-			addProduct(c)
+			addProducts(c)
 		}
 	})
 
@@ -99,6 +101,12 @@ func main() {
 	r.PUT("/products/price/ID/:product_id/:size/:price", func(c *gin.Context) {
 		if isAdmin := validateAdmin(c); isAdmin {
 			updatePriceBySize(c)
+		}
+	})
+
+	r.DELETE("/products/:id", func(c *gin.Context) {
+		if isAdmin := validateAdmin(c); isAdmin {
+			deleteProduct(c)
 		}
 	})
 
@@ -126,6 +134,11 @@ func main() {
 
 	r.POST("/login", func(c *gin.Context) {
 		login(c)
+	})
+
+	r.GET("/validate_admin", func(c *gin.Context) {
+		isAdmin := validateAdmin(c)
+		c.JSON(http.StatusOK, gin.H{"is_admin": isAdmin})
 	})
 
 	//ORDERS
