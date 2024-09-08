@@ -123,9 +123,13 @@ func login(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error_3": err.Error()})
 			return
 		}
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "user doesn't exist"})
+		return
 	}
 
 	isCorrect := checkHashedPassword(login.Password, currentUser.Password)
+
 	var token string
 	if isCorrect {
 		result, err := generateJWT(currentUser.ID)
@@ -134,6 +138,9 @@ func login(c *gin.Context) {
 			return
 		}
 		token = result
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "wrong password."})
+		return
 	}
 
 	loggedInID, err := validateLoggedIn(token)
@@ -142,5 +149,11 @@ func login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"token": token, "user_id": loggedInID})
+	isAdmin, err := getAdmin(loggedInID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error_6": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token, "user_id": loggedInID, "is_admin": isAdmin})
 }

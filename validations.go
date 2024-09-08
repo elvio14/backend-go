@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -74,18 +73,18 @@ func validateLoggedIn(token string) (string, error) {
 	return loggedInID, nil
 }
 
-func validateAdmin(c *gin.Context) bool {
+func validateAdmin(c *gin.Context) (bool, error) {
 	token := c.GetHeader("token")
 
 	id, err := validateLoggedIn(token)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_1": err.Error()})
+		return false, err
 	}
 
 	SQL_id := `SELECT is_admin FROM users WHERE id = ?`
 	rows, err := db.Query(SQL_id, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_2": err.Error()})
+		return false, err
 	}
 	defer rows.Close()
 
@@ -93,13 +92,36 @@ func validateAdmin(c *gin.Context) bool {
 	if rows.Next() {
 		err = rows.Scan(&isAdmin)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error_3": err.Error()})
+			return false, err
 		}
 	}
 
 	if !isAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"message": "admin access only"})
+		return false, fmt.Errorf("admin access only")
 	}
 
-	return isAdmin
+	return isAdmin, nil
+}
+
+func getAdmin(id string) (bool, error) {
+	SQL_id := `SELECT is_admin FROM users WHERE id = ?`
+	rows, err := db.Query(SQL_id, id)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	var isAdmin bool
+	if rows.Next() {
+		err = rows.Scan(&isAdmin)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	if !isAdmin {
+		return false, err
+	}
+
+	return isAdmin, nil
 }

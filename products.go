@@ -146,18 +146,12 @@ func getProductByID(c *gin.Context) {
 }
 
 // EDIT
-func editProduct(c *gin.Context) {
+
+func editProductString(c *gin.Context) {
+	//Body: "new-value" : value
 	ID := c.Param("ID")
 	column := c.Param("column")
-	if column == "price" {
-		editPriceInt(c, ID, column)
-	} else {
-		editProductString(c, ID, column)
-	}
-}
 
-func editProductString(c *gin.Context, ID string, column string) {
-	//Body: "new-value" : value
 	body, err_0 := io.ReadAll(c.Request.Body)
 	if err_0 != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error_0": "Could not read request body."})
@@ -189,40 +183,6 @@ func editProductString(c *gin.Context, ID string, column string) {
 
 	c.JSON(http.StatusOK, gin.H{"message": message})
 
-}
-
-func editPriceInt(c *gin.Context, ID string, column string) {
-	//Body: "new-value" : value
-	body, err_0 := io.ReadAll(c.Request.Body)
-	if err_0 != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error_0": "Could not read request body."})
-		return
-	}
-
-	var data map[string]interface{}
-
-	if err := json.Unmarshal(body, &data); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	value, ok := data["new-value"].(int)
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "reading value"})
-		return
-	}
-
-	SQL := fmt.Sprintf(`UPDATE products SET (%s, updated_at) = (?, ?) WHERE id = ?;`, column)
-
-	_, err_2 := db.Exec(SQL, value, time.Now(), ID)
-	if err_2 != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_2": err_2.Error()})
-		return
-	}
-
-	message := fmt.Sprintf(`edited product %s's %s`, ID, column)
-
-	c.JSON(http.StatusOK, gin.H{"message": message})
 }
 
 func deleteProduct(c *gin.Context) {

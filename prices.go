@@ -10,8 +10,7 @@ import (
 )
 
 type Price struct {
-	PriceID   int
-	ProductID string
+	ProductID string `json:"product_id"`
 	Size      string
 	Price     int
 	CreatedAt time.Time
@@ -20,12 +19,11 @@ type Price struct {
 
 func initializePriceTable() error {
 	SQL := `CREATE TABLE IF NOT EXISTS prices (
-				price_id TEXT,
 				product_id TEXT,
 				size TEXT,
 				price INT,
-				CreatedAt TIMESTAMP,
-				UpdatedAt TIMESTAMP
+				created_at TIMESTAMP,
+				updated_at TIMESTAMP
 		)`
 	_, err := db.Exec(SQL)
 	if err != nil {
@@ -42,13 +40,14 @@ func setPrice(c *gin.Context) {
 		return
 	}
 
-	SQL := `INSERT INTO prices (price_id, product_id, size, price, created_at, updated_at)
+	SQL := `INSERT INTO prices (product_id, size, price, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?)`
 	_, err := db.Exec(SQL, price.ProductID, price.Size, price.Price, time.Now(), time.Now())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	c.JSON(http.StatusOK, gin.H{"message": "price set", "product": price.ProductID, "price": price.Price, "size": price.Size})
 }
 
 func updatePriceBySize(c *gin.Context) {
@@ -58,15 +57,39 @@ func updatePriceBySize(c *gin.Context) {
 
 	priceint, err_0 := parseToInt(price)
 	if err_0 != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error_0": err_0.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error_0": err_0.Error(), "message": "error updating price, error parsing int"})
 	}
 	SQL := `UPDATE prices SET (price, updated_at) = (?, ?) WHERE (product_id, size) = (?, ?)`
 	_, err := db.Exec(SQL, priceint, time.Now(), productID, size)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "message": "error updating price, error db"})
 		return
 	}
 	message := fmt.Sprintf(`updated %s's size %s price to %s`, productID, size, price)
 
 	c.JSON(http.StatusOK, gin.H{"message": message})
+}
+
+func getPrices(c *gin.Context) {
+	SQL := `SELECT * FROM prices`
+
+	rows, err := db.Query(SQL)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	prices := []Price{}
+	for rows.Next() {
+		var price Price
+		err := rows.Scan(&price.ProductID, &price.Size, &price.Price, &price.CreatedAt, &price.UpdatedAt)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		prices = append(prices, price)
+	}
+
+	c.IndentedJSON(http.StatusOK, prices)
 }

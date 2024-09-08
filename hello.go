@@ -49,8 +49,8 @@ func main() {
 
 	r.Use(cors.New(cors.Config{
 		AllowOrigins: []string{"http://localhost:5173"},
-		AllowMethods: []string{"GET", "PUT", "POST", "DELETE"},
-		AllowHeaders: []string{"Origin", "Content-Type"},
+		AllowMethods: []string{"GET", "PUT", "POST", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{"Origin", "Content-Type", "token"},
 	}))
 
 	r.GET("/ping", func(c *gin.Context) {
@@ -79,33 +79,62 @@ func main() {
 		getProductByID(c)
 	})
 
+	r.GET("/products/prices", func(c *gin.Context) {
+		getPrices(c)
+	})
+
 	r.PUT("/products/ID/:ID/:column", func(c *gin.Context) {
-		if isAdmin := validateAdmin(c); isAdmin {
-			editProduct(c)
+		isAdmin, err := validateAdmin(c)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+
+		if isAdmin {
+			editProductString(c)
 		}
 	})
 
 	r.POST("/products", func(c *gin.Context) {
 		//takes an array or products in body JSON
-		if isAdmin := validateAdmin(c); isAdmin {
+		isAdmin, err := validateAdmin(c)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+
+		if isAdmin {
 			addProducts(c)
 		}
 	})
 
 	r.POST("/products/price", func(c *gin.Context) {
-		if isAdmin := validateAdmin(c); isAdmin {
+		isAdmin, err := validateAdmin(c)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+
+		if isAdmin {
 			setPrice(c)
 		}
 	})
 
 	r.PUT("/products/price/ID/:product_id/:size/:price", func(c *gin.Context) {
-		if isAdmin := validateAdmin(c); isAdmin {
+		isAdmin, err := validateAdmin(c)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+
+		if isAdmin {
 			updatePriceBySize(c)
 		}
 	})
 
 	r.DELETE("/products/:id", func(c *gin.Context) {
-		if isAdmin := validateAdmin(c); isAdmin {
+		isAdmin, err := validateAdmin(c)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+
+		if isAdmin {
 			deleteProduct(c)
 		}
 	})
@@ -137,7 +166,10 @@ func main() {
 	})
 
 	r.GET("/validate_admin", func(c *gin.Context) {
-		isAdmin := validateAdmin(c)
+		isAdmin, err := validateAdmin(c)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		c.JSON(http.StatusOK, gin.H{"is_admin": isAdmin})
 	})
 
