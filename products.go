@@ -129,7 +129,7 @@ func getProductsByCategory(c *gin.Context) {
 
 func getProductByID(c *gin.Context) {
 	ID := c.Param("ID")
-	SQL := `SELECT * FROM products WHERE id = ?`
+	SQL := `SELECT * FROM products WHERE product_id = ?`
 	row, err := db.Query(SQL, ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
