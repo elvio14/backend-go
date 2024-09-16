@@ -28,7 +28,7 @@ func createCheckoutSession(c *gin.Context) string {
 		}
 	}
 
-	domain := "http://localhost:5000"
+	domain := "http://localhost:5173"
 	params := &stripe.CheckoutSessionParams{
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{
@@ -43,8 +43,8 @@ func createCheckoutSession(c *gin.Context) string {
 			},
 		},
 		Mode:       stripe.String(string(stripe.CheckoutSessionModePayment)),
-		SuccessURL: stripe.String(domain + "/success.html"),
-		CancelURL:  stripe.String(domain + "/cancel.html"),
+		SuccessURL: stripe.String(domain + "/success"),
+		CancelURL:  stripe.String(domain + "/cancel"),
 	}
 
 	s, err := session.New(params)
