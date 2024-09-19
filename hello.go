@@ -156,6 +156,10 @@ func main() {
 		changeQuantity(c)
 	})
 
+	//CART ITEMS
+	r.GET("/cart_items/:cart_id", func(c *gin.Context) {
+		getCartItems(c)
+	})
 	//USERS
 	r.POST("/users", func(c *gin.Context) {
 		register(c, userID)

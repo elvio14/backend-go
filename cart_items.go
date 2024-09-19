@@ -10,8 +10,8 @@ import (
 
 type CartItem struct {
 	CartItemID int
-	CartID     string
-	ProductID  string
+	CartID     string `json:"cart_id"`
+	ProductID  string `json:"product_id"`
 	Size       string
 	Price      int
 	Quantity   int
@@ -58,9 +58,9 @@ func addToCart(c *gin.Context) {
 }
 
 func removeFromCart(c *gin.Context) {
-	cartName := c.Param("cart_name")
+	cartID := c.Param("cart_id")
 	itemID := c.Param("item_id")
-	SQL := fmt.Sprintf(`DELETE FROM %s WHERE item_id = ?`, cartName)
+	SQL := `DELETE FROM cart_items WHERE (cart_id, item_id) = (?, ?)`
 
 	_, err := db.Exec(SQL, itemID)
 	if err != nil {
@@ -68,24 +68,49 @@ func removeFromCart(c *gin.Context) {
 		return
 	}
 
-	message := fmt.Sprintf(`removed %s from cart %s`, itemID, cartName)
+	message := fmt.Sprintf(`removed %s from cart %s`, itemID, cartID)
 
 	c.JSON(http.StatusOK, gin.H{"message": message})
 }
 
 func changeQuantity(c *gin.Context) {
-	cartName := c.Param("cart_name")
+	cartID := c.Param("cart_id")
 	itemID := c.Param("item_id")
 	quantity := c.Param("quantity")
-	SQL := fmt.Sprintf(`UPDATE %s SET quantity = ? WHERE item_id = ?`, cartName)
+	SQL := `UPDATE cart_items SET quantity = ? WHERE (cart_id, item_id) = (?, ?)`
 
-	_, err := db.Exec(SQL, quantity, itemID)
+	_, err := db.Exec(SQL, quantity, cartID, itemID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	message := fmt.Sprintf(`changed %s's quantity to %s in cart %s`, itemID, quantity, cartName)
+	message := fmt.Sprintf(`changed %s's quantity to %s in cart %s`, itemID, quantity, cartID)
 
 	c.JSON(http.StatusOK, gin.H{"message": message})
+}
+
+func getCartItems(c *gin.Context) {
+	cartID := c.Param("cart_id")
+	SQL := `SELECT * FROM cart_items WHERE cart_id = ?`
+
+	rows, err := db.Query(SQL, cartID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	items := []CartItem{}
+	for rows.Next() {
+		var item CartItem
+		err := rows.Scan(&item.CartItemID, &item.CartID, &item.ProductID, &item.Size, &item.Price, &item.Quantity, &item.Notes)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		items = append(items, item)
+	}
+
+	c.IndentedJSON(http.StatusOK, items)
 }
